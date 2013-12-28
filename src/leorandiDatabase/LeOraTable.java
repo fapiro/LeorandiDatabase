@@ -6,7 +6,10 @@ interface ITable{
 	public int getMemorySize(int unitOfMeasure);
 	public LeOraSegment getSegment(String partitionKey) throws WrongParameterException;
 	public LeOraSegment getSegment(int index);
+	public int getRowsCount();
+	public int getFreeRowsCount();
 	public int getSegmentsCount();
+	public int getFreeSegmentsCount();	
 	public LeOraSegment getMainSegment();
 	public void insertRow(String[] data) throws ColumnCountException, PartitionKeyIsNullException, WrongParameterException;
 	public String getName();
@@ -21,6 +24,7 @@ public class LeOraTable implements ITable{
 	private int partitionByColumnIndex = -1;
 	private boolean statisticsGathered = false; // statistics has not been gathered yet for this table
 	private LeOraStatistics statistics;
+	private int freeSegmentsCount = 0;
 	
 	public boolean isPartitioned(){
 		return partitioned;
@@ -57,6 +61,7 @@ public class LeOraTable implements ITable{
 			LeOraSegment segment = new LeOraSegment(columns.length);
 			segment.setPartitionKey(partitionKeyValue);
 			this.segments.add(segment);
+			freeSegmentsCount++;
 			segment = null;
 		}
 	}
@@ -83,6 +88,7 @@ public class LeOraTable implements ITable{
 		this.name = name;
 		this.columns = columns;
 		this.segments.add(new LeOraSegment(columns.length));
+		freeSegmentsCount++;
 	}
 	
 	public int getMemorySize(int unitOfMeasure){
@@ -91,6 +97,23 @@ public class LeOraTable implements ITable{
 			res += segments.get(i).getMemorySize();
 		}
 		return (res / unitOfMeasure);
+	}
+	
+	public int getRowsCount(){
+		int res = 0;
+		for(int i=0; i<segments.size(); i++){
+			res += segments.get(i).getRowsCount();
+		}
+		return res;
+	}
+	
+	public int getFreeRowsCount(){
+		int res = 0;
+		for(int i=0; i<segments.size(); i++){
+			res += segments.get(i).getFreeRowsCount();
+		}
+		//LeOraUtils.p("  table getFreeRowsCount res="+res);
+		return res;
 	}
 	
 	public LeOraSegment getPartition(String partitionKey) throws WrongParameterException{
@@ -120,6 +143,10 @@ public class LeOraTable implements ITable{
 	}
 	
 	public int getSegmentsCount(){
+		return segments.size();
+	}
+	
+	public int getFreeSegmentsCount(){
 		return segments.size();
 	}
 	
@@ -155,6 +182,7 @@ public class LeOraTable implements ITable{
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+		if (0 == segment.getFreeExtentsCount()) freeSegmentsCount--; 
 		segment = null;
 	}
 	

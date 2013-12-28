@@ -8,7 +8,7 @@ interface ISchema{
 	public int getTableCount();
 	public ITable getTable(String name) throws NotFoundTableException;
 	public boolean tableExists(String name);
-	public void createTable(String name, String[] colunms);
+	public ITable createTable(String name, String[] colunms);
 }
 
 public class LeOraSchema implements ISchema{
@@ -64,11 +64,13 @@ public class LeOraSchema implements ISchema{
 		return tables.size();
 	}
 	
-	public void createTable(String name, String[] colunms){
+	public LeOraTable createTable(String name, String[] colunms){
+		LeOraTable table = null;
 		if(!tableExists(name)){
 			// creates new table:
-			LeOraTable table = new LeOraTable(name, colunms);
+			table = new LeOraTable(name, colunms);
 			tables.add(table);	
 		}
+		return table;
 	}
 }

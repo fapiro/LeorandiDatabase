@@ -25,7 +25,7 @@ public class Main {
 		}
 		database.createUser("HR", "pass");
 		
-		p("Main.run: instance.getVersion() "+instance.getVersion());
+		p("Main.run: instance.getVersion() = "+instance.getVersion());
 
 		
 		ISession session1 = null;

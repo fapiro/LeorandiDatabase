@@ -4,8 +4,8 @@ class NoFreeSpaceException extends Exception{};
 
 interface IBlock{
 	public int getRowsCount();
-	public IRow getRow(int index);
 	public int getFreeRowsCount();
+	public IRow getRow(int index);
 	public void insertRow(String[] data) throws NoFreeSpaceException;
 	public int getRowIndexForBulkInsert();
 }
@@ -17,15 +17,20 @@ public class LeOraBlock implements IBlock{
 	
 	public int getRowIndexForBulkInsert(){
 		int len = rows.length, currentPosition = rowIndexForBulkInsert;
-		while(++rowIndexForBulkInsert != currentPosition){
+		boolean found = false; // new variable to speed up execution
+		do{
+			if(rowIndexForBulkInsert == -1){
+				rowIndexForBulkInsert = 0;
+			} 
 			if(rowIndexForBulkInsert == len){
 				rowIndexForBulkInsert = 0;
 			}
 			if(!rows[rowIndexForBulkInsert].exists()){
+				found = true;
 				break;
 			}
-		}
-		if((rowIndexForBulkInsert == currentPosition) && (rows[rowIndexForBulkInsert].exists())){
+		}while(++rowIndexForBulkInsert != currentPosition);
+		if(!found){
 			rowIndexForBulkInsert = -1;
 		}
 		return rowIndexForBulkInsert;
@@ -42,7 +47,9 @@ public class LeOraBlock implements IBlock{
 		return LeOraConstants.ROWS_COUNT_IN_ONE_BLOCK;
 	}
 	
-	public int getFreeRowsCount(){
+	public int getFreeRowsCount(){ 
+		// stelio: made via call to get value of simple variable to gain more fast execution
+		//LeOraUtils.p("  block getFreeRowsCount="+freeRowsCount);
 		return freeRowsCount;
 	}
 	
@@ -55,7 +62,7 @@ public class LeOraBlock implements IBlock{
 	}
 	
 	public void insertRow(String[] data) throws NoFreeSpaceException{
-		if(0 == freeRowsCount){
+		if(0 == getFreeRowsCount()){ 
 			throw new NoFreeSpaceException();
 		}
 		int position = getRowIndexForBulkInsert();

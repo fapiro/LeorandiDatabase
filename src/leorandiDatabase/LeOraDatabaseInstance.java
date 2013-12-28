@@ -107,7 +107,7 @@ import java.util.concurrent.TimeUnit;
 
 public class LeOraDatabaseInstance {
 	private final int release = 1;
-	private final int patch = 0;
+	private final int patch = 1;
 	private LeOraThreadsManager threadsManager;
 	
 	// managed sessions to different databases
@@ -174,13 +174,15 @@ public class LeOraDatabaseInstance {
 	}
 	
 	public LeOraSession createSession(String databaseName, String ConnectedUserName, String ConnectedAs, String password, LeOraUserRunnable userRunnable)
-			throws SessionCreationFailedException, NotFoundDatabaseException, NotFoundUserException, WrongPasswordException
+			throws NotFoundDatabaseException, NotFoundUserException, WrongPasswordException
 	{
 		LeOraDatabase database = getDatabase(databaseName);
 		LeOraSession session = new LeOraSession();
-		userRunnable.session = session;
 		session.setConnected(database, ConnectedUserName, ConnectedAs, password);
-		session.setThread(threadsManager.newUserThread(userRunnable)); 
+		if (userRunnable != null) {
+			userRunnable.session = session;
+			session.setThread(threadsManager.newUserThread(userRunnable)); 
+		}
 		return session;
 	}
 }

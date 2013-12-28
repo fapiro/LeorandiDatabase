@@ -3,11 +3,14 @@ package leorandiDatabase;
 import java.util.ArrayList;
 
 interface ISegment{
-	public int getExtentsCount();
 	public IExtent getExtent(int index);
 	public void addExtent();
 	public int getExtentIndexForBulkInsert();
 	public int getMemorySize();
+	public int getRowsCount();
+	public int getFreeRowsCount();
+	public int getExtentsCount();
+	public int getFreeExtentsCount();
 	public void insertRow(String[] data) throws NoFreeSpaceException;
 }
 
@@ -17,7 +20,7 @@ public class LeOraSegment implements ISegment{
 	private LeOraField partitionKey = new LeOraField();
 	private LeOraStatistics statistics;
 	private int extentIndexForBulkInsert = -1;
-	private int freeExtentsCount;
+	private int freeExtentsCount = 0;
 	
 	public void setPartitionKey(String source){
 		this.partitionKey.setData(source);
@@ -55,11 +58,16 @@ public class LeOraSegment implements ISegment{
 	public LeOraSegment(int columnsCount){
 		this.columnsCount = columnsCount;
 		extents.add(new LeOraExtent(columnsCount));
-		this.extentIndexForBulkInsert = 0;
+		freeExtentsCount++;
+		this.extentIndexForBulkInsert = -1;
 	}
 	
 	public int getExtentsCount(){
 		return extents.size();
+	}
+	
+	public int getFreeExtentsCount(){
+		return freeExtentsCount;
 	}
 	
 	public LeOraExtent getExtent(int index){
@@ -78,30 +86,55 @@ public class LeOraSegment implements ISegment{
 		return extents.size() * extents.get(0).getMemorySize();
 	}
 	
+	public int getRowsCount(){
+		int res = 0;
+		for(int i=0; i<getExtentsCount(); i++){
+			res += extents.get(i).getRowsCount();
+		}
+		return res;
+	}
+	
+	public int getFreeRowsCount(){
+		int res = 0;
+		for(int i=0; i<getExtentsCount(); i++){
+			res += extents.get(i).getFreeRowsCount();
+		}
+		//LeOraUtils.p("  segment getFreeRowsCount res="+res);
+		return res;
+	}
+	
 	public int getExtentIndexForBulkInsert(){
 		int len = extents.size(), currentPosition = extentIndexForBulkInsert;
-		while(++extentIndexForBulkInsert != currentPosition){
+		boolean found = false; // new variable to speed up execution
+		do{
+			if(extentIndexForBulkInsert == -1){
+				extentIndexForBulkInsert = 0;
+			}
 			if(extentIndexForBulkInsert == len){
 				extentIndexForBulkInsert = 0;
 			}
 			if(extents.get(extentIndexForBulkInsert).getFreeBlocksCount() > 0){
+				found = true;
 				break;
 			}
-		}
-		if((extentIndexForBulkInsert == currentPosition) && (extents.get(extentIndexForBulkInsert).getFreeBlocksCount() == 0)){
+		}while(++extentIndexForBulkInsert != currentPosition);
+		if(!found){
 			extentIndexForBulkInsert = -1;
 		}
 		return extentIndexForBulkInsert;
 	}
 	
 	public void insertRow(String[] data) throws NoFreeSpaceException{
-		extents.get(extentIndexForBulkInsert).insertRow(data);
 		if(0 == freeExtentsCount){
 			addExtent();
+			freeExtentsCount++;
 			//throw new NoFreeSpaceException();
 		}
 		int position = getExtentIndexForBulkInsert();
 		if(-1 == position) throw new NoFreeSpaceException();
-		extents.get(position).insertRow(data);
+		LeOraExtent e = extents.get(position);
+		e.insertRow(data);
+		// if extent does not no more have free blocks then decreases free extents count 
+		if(0 == e.getFreeBlocksCount())freeExtentsCount--;
 	}
 }

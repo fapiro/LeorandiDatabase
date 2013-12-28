@@ -20,9 +20,16 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+/**
+ * @author stelio
+ *  
+ */
 public class TestLeOraDatabaseInstance {
 	final static String databaseName = "LeORAndi_MEM_DB";
+	final static String schemaName = "HR";
 	private static LeOraDatabaseInstance instance;
+	
+	private void p(String s){System.out.println(s);};
 	
 	@BeforeClass
 	public static void setUpBeforeClass() throws Exception {
@@ -46,27 +53,54 @@ public class TestLeOraDatabaseInstance {
 	}
 
 	@Test(expected = NotFoundDatabaseException.class)
-	public void test1() {
-		try {
-			instance.createSession("SOMEONE_DB", "HR", "", "TEST_PASSWORD", new LeOraUserRunnable());
-		} catch (SessionCreationFailedException e) {
-		} catch (NotFoundDatabaseException e) {
-		} catch (NotFoundUserException e) {
-		} catch (WrongPasswordException e) {
-		}
+	public void test1() throws NotFoundUserException, NotFoundDatabaseException, WrongPasswordException {
+		instance.createSession("SOMEONE_DB", schemaName, "", "TEST_PASSWORD", new LeOraUserRunnable());
 	}
 
-	@Test(expected = SessionCreationFailedException.class)
-	public void test2() {
-		try {
-			instance.createSession(databaseName, "HR", "", "<WhichPassword?>", new LeOraUserRunnable());
-		} catch (SessionCreationFailedException e) {
-		} catch (NotFoundException e) {
-		} catch (WrongPasswordException e) {
-		}
+	@Test(expected = WrongPasswordException.class)
+	public void test2() throws WrongPasswordException, NotFoundDatabaseException, NotFoundUserException{
+		instance.createSession(databaseName, schemaName, "", "<WhichPassword?>", new LeOraUserRunnable());
 	}
 	
-	public void p(String s){
-		System.out.println(s);
+	@Test
+	public void test3() throws NotFoundDatabaseException, NotFoundUserException, WrongPasswordException{
+		// Roman Kuzmin: Don't use thread Runnable here because of bugs in JUnit
+		class Nested{
+			public void run(LeOraSession session) {
+				LeOraDatabase db = (LeOraDatabase) session.getDatabase();
+				LeOraSchema schema = null;
+				try {
+					schema =  db.getSchema(schemaName);
+				} catch (NotFoundUserException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				String[] columns = {"ID", "FIRST_NAME", "SECOND_NAME", "DT_BIRTH", "DT_HIRED"};
+				final String tableName = "EMPLOYEES";
+				LeOraTable emp = schema.createTable(tableName, columns);
+				String[] data    = {"0", "ROMAN", "KUZMIN", "", ""};
+				p("before: emp.getRowsCount() = "+emp.getRowsCount());
+				p("before: emp.getFreeRowsCount() = "+emp.getFreeRowsCount());
+				try {
+					p("inserting one row...");
+					emp.insertRow(data);
+				} catch (ColumnCountException | PartitionKeyIsNullException
+						| WrongParameterException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				p("Done");
+				p("after: emp.getRowsCount() = "+emp.getRowsCount());
+				p("emp.getFreeRowsCount() = "+emp.getFreeRowsCount());
+				p("emp.getMainSegment().getExtentsCount() = "+emp.getMainSegment().getExtentsCount());
+				p("emp.getMainSegment().getFreeExtentsCount() = "+emp.getMainSegment().getFreeExtentsCount());
+				p("emp.getSegmentsCount() = "+emp.getSegmentsCount());
+				p("emp.getFreeSegmentsCount() = "+emp.getFreeSegmentsCount());
+			}
+		};
+		
+		LeOraSession session = instance.createSession(databaseName, schemaName, "", "pass", null);
+		Nested nested = new Nested();
+		nested.run(session);
 	}
 }
